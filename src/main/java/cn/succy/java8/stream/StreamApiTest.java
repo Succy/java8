@@ -5,7 +5,12 @@ import org.junit.Test;
 
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.DoubleSummaryStatistics;
 import java.util.List;
+import java.util.Map;
+import java.util.Optional;
+import java.util.Set;
+import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 /**
@@ -17,13 +22,15 @@ import java.util.stream.Stream;
 
 public class StreamApiTest {
     private List<Employee> employees = Arrays.asList(
-            new Employee("张三", 35, 5000.55),
-            new Employee("李四", 23, 6600.55),
-            new Employee("王五", 50, 3211.23),
-            new Employee("赵六", 38, 5854.55),
-            new Employee("朱八", 23, 9000),
-            new Employee("朱八", 23, 9000)
-
+            new Employee("张三", 35, 5000.55, Employee.Status.BUSY),
+            new Employee("李四", 23, 6600.55, Employee.Status.IDLE),
+            new Employee("大南瓜", 25, 5600.55, Employee.Status.BUSY),
+            new Employee("王五", 50, 3211.23, Employee.Status.VOCATION),
+            new Employee("王五", 50, 3211.23, Employee.Status.VOCATION),
+            new Employee("大屌丝", 55, 9211.23, Employee.Status.IDLE),
+            new Employee("赵六", 38, 5854.55, Employee.Status.BUSY),
+            new Employee("朱八", 23, 9000, Employee.Status.IDLE),
+            new Employee("朱八", 23, 9000, Employee.Status.IDLE)
     );
 
     /**
@@ -142,5 +149,122 @@ public class StreamApiTest {
             }
             return e1.getAge() - e2.getAge();
         }).forEach(System.out::println);
+    }
+
+
+    /**
+     * Stream 终止操作
+     * allMatch 当流中所有元素都匹配时返回true，与&&操作类似
+     * anyMatch 只要流中有一个元素与之匹配，返回true，与||操作类似
+     * noneMatch 流中所有元素不匹配返回true
+     * findFirst 从流中查找第一个
+     * findAny 从流中查找任意一个，是随意的
+     * count 取出流中元素总数
+     * max 取出流中按照某方式比较的最大值
+     * min 取出流中以某方式比价的最小值
+     */
+    @Test
+    public void testMatch() {
+        boolean b = employees.stream().allMatch(e -> e.getStatus() == Employee.Status.BUSY);
+        System.out.println(b);
+        boolean b1 = employees.stream().anyMatch(e -> e.getStatus() == Employee.Status.BUSY);
+        System.out.println(b1);
+        boolean b2 = employees.stream().noneMatch(e -> e.getStatus() == Employee.Status.BUSY);
+        System.out.println(b2);
+    }
+
+    @Test
+    public void testFind() {
+        // 找出工资大于5000的第一个
+        Optional<Employee> emp = employees.stream().filter(e -> e.getSalary() > 5000).findFirst();
+        System.out.println(emp);
+        System.out.println("==========================================");
+        // 找出工资大于5000的任意一个
+        Optional<Employee> emp1 = employees.stream().filter(e -> e.getSalary() > 5000).findAny();
+        System.out.println(emp1);
+    }
+
+    @Test
+    public void testCountMaxMin() {
+        // 找出工资最大一个
+        Optional<Employee> max = employees.stream().max((e1, e2) -> Double.compare(e1.getSalary(), e2.getSalary()));
+        System.out.println(max.get());
+        System.out.println("=============================================");
+        // 找出工资最少的一个
+        Optional<Employee> min = employees.stream().min((e1, e2) -> Double.compare(e1.getSalary(), e2.getSalary()));
+        System.out.println(min.get());
+        System.out.println("=============================================");
+        // 取出最少的工资
+        Optional<Double> min1 = employees.stream().map(Employee::getSalary).min(Double::compare);
+        System.out.println(min1.get());
+    }
+
+    /**
+     * 归约和收集
+     * reduce 归约，将流中的元素反复结合在一起，得到一个值
+     * collect 收集
+     */
+
+    @Test
+    public void testReduce() {
+        List<Integer> list = Arrays.asList(1, 2, 3, 4, 5, 6, 7, 8, 9, 10);
+        // 把list里面元素相加,有起始值的
+        Integer sum = list.stream().reduce(0, (x, y) -> x + y);
+        System.out.println(sum);
+        // 把list里面元素相加,没有起始值的
+        System.out.println("------------------------------------");
+        Optional<Integer> sum1 = list.stream().reduce(Integer::sum);
+        System.out.println(sum1.get());
+        System.out.println("------------------------------------");
+        // 拿到所有员工的工资之和
+        Optional<Double> salarys = employees.stream().map(Employee::getSalary).reduce(Double::sum);
+        System.out.println(salarys.get());
+    }
+
+    /**
+     * 将流中元素收集到一个集合
+     */
+    @Test
+    public void testCollect1() {
+        // toList
+        List<String> namesToList = employees.stream().map(Employee::getName).collect(Collectors.toList());
+        System.out.println(namesToList);
+        System.out.println("------------------------------------------");
+        // toSet
+        Set<String> namesToSet = employees.stream().map(Employee::getName).collect(Collectors.toSet());
+        System.out.println(namesToSet);
+        System.out.println("------------------------------------------");
+        // 求和1
+        Double collectSum = employees.stream().collect(Collectors.summingDouble(Employee::getSalary));
+        System.out.println(collectSum);
+        // 求和2,使用概要统计，会得到和，平均值，最大，最小值等
+        // 相当于sql中的组函数
+        DoubleSummaryStatistics dss = employees.stream().collect(Collectors.summarizingDouble(Employee::getSalary));
+        System.out.println("dss sum: " + dss.getSum());
+        System.out.println("dss avg: " + dss.getAverage());
+        System.out.println("dss count: " + dss.getCount());
+        System.out.println("dss max: " + dss.getMax());
+        System.out.println("dss min: " + dss.getMin());
+        System.out.println("------------------------------------------");
+        // 分组 按照status分组
+        Map<Employee.Status, List<Employee>> groupMap = employees.stream()
+                .distinct()
+                .collect(Collectors.groupingBy(Employee::getStatus));
+        System.out.println(groupMap);
+        System.out.println("------------------------------------------");
+        // 多重分组，先按照status进行分组，接着按照年龄进行分组
+        Map<Employee.Status, Map<String, List<Employee>>> groupMap1 = employees.stream()
+                .distinct()
+                .collect(Collectors.groupingBy(Employee::getStatus, Collectors.groupingBy((Employee e) -> {
+                    if (e.getAge() <= 30) {
+                        return "青年";
+                    } else if (e.getAge() > 30 && e.getAge() <= 50) {
+                        return "中年";
+                    } else {
+                        return "老年";
+                    }
+                })));
+        System.out.println(groupMap1);
+
     }
 }
